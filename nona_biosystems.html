@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NONA // BIOSYSTEMS DIAGNOSTICS</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/gridjs.umd.js" integrity="sha384-/XXDzxe4FsGiAe50i/u9pY/Vy/uX654MHB1xoc1BJNnH1WXHhqHga9g3q5tF4gj7" crossorigin="anonymous"></script>
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#0E1117;--bg2:#131822;--panel:#161C27;--panel2:#1B2230;
+  --ink:#E8EDF4;--ink2:#9DB0C2;--muted:#6A7888;--line:#27313F;--line2:#36455A;
+  --teal:#84E3D4;--teal-d:#5FC4B5;--lav:#BCA9F2;--lav-d:#9E89DD;--peach:#F2CE8A;--rose:#F0909C;
+  --grid:rgba(232,237,244,.07);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+  font-family:"Roboto Mono","DejaVu Sans Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;-webkit-font-smoothing:antialiased;}
+body{padding:14px;background-image:radial-gradient(rgba(132,227,212,.035) 1px,transparent 1px);background-size:24px 24px;}
+.wrap{max-width:1100px;margin:0 auto;}
+.up{text-transform:uppercase;letter-spacing:.14em;}
+.tiny{font-size:10px;}
+.dim{color:var(--muted);}
+
+.hazard{height:7px;width:100%;background:repeating-linear-gradient(135deg,var(--lav) 0 11px,var(--teal) 11px 22px);opacity:.5;}
+.panel{position:relative;background:var(--panel);border:1.5px solid var(--line);padding:16px;}
+.panel.alt{background:var(--panel2);}
+.panel::before,.panel::after{content:"";position:absolute;width:12px;height:12px;border:2px solid var(--teal);}
+.panel::before{top:-2px;left:-2px;border-right:none;border-bottom:none;}
+.panel::after{bottom:-2px;right:-2px;border-left:none;border-top:none;}
+.ptag{position:absolute;top:-9px;right:10px;background:var(--bg);padding:0 6px;font-size:9px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;}
+.cite{font-size:9px;color:var(--muted);letter-spacing:.04em;margin-top:9px;font-style:italic;line-height:1.5;}
+
+.head{border:1.5px solid var(--line2);background:#0A0D12;padding:0;margin-bottom:12px;box-shadow:0 0 0 1px rgba(132,227,212,.05) inset;}
+.head-top{display:flex;justify-content:space-between;align-items:stretch;}
+.brand{padding:13px 16px;}
+.brand .n{font-size:26px;font-weight:700;letter-spacing:.22em;line-height:1;color:var(--teal);text-shadow:0 0 18px rgba(132,227,212,.30);}
+.brand .s{font-size:9px;letter-spacing:.26em;color:var(--lav);margin-top:7px;}
+.head-id{padding:13px 16px;text-align:right;border-left:1px solid var(--line);min-width:240px;}
+.head-id .row{display:flex;justify-content:space-between;gap:14px;font-size:10px;letter-spacing:.08em;margin:3px 0;color:var(--muted);}
+.head-id .row b{color:var(--teal);font-weight:400;}
+.pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--teal);margin-right:6px;box-shadow:0 0 0 0 rgba(132,227,212,.7);animation:pl 2s infinite;}
+@keyframes pl{0%{box-shadow:0 0 0 0 rgba(132,227,212,.5)}70%{box-shadow:0 0 0 6px rgba(132,227,212,0)}100%{box-shadow:0 0 0 0 rgba(132,227,212,0)}}
+
+.grid{display:grid;gap:12px;}
+.g-tiles{grid-template-columns:repeat(4,1fr);}
+.g-2e{grid-template-columns:1fr 1fr;}
+@media(max-width:780px){.g-tiles{grid-template-columns:repeat(2,1fr);}.g-2e{grid-template-columns:1fr;}.head-top{flex-direction:column;}.head-id{text-align:left;border-left:none;border-top:1px solid var(--line);}}
+
+.sec-label{display:flex;align-items:center;gap:10px;margin:18px 0 8px;}
+.sec-label .bar{height:14px;width:5px;background:var(--teal);box-shadow:0 0 10px rgba(132,227,212,.5);}
+.sec-label h2{margin:0;font-size:12px;letter-spacing:.2em;text-transform:uppercase;font-weight:700;color:var(--ink);}
+.sec-label .meta{margin-left:auto;font-size:9px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;}
+
+.btn{font-family:inherit;font-size:11px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;background:var(--teal);color:#0A0D12;border:none;padding:10px 16px;font-weight:700;transition:.15s;}
+.btn:hover{background:var(--teal-d);}
+.btn.ghost{background:transparent;color:var(--ink2);border:1.3px solid var(--line2);font-weight:400;}
+.btn.ghost:hover{border-color:var(--teal);color:var(--teal);}
+
+.intake-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.intake-bar .lead{font-size:11px;color:var(--ink2);letter-spacing:.04em;}
+#intake{margin-bottom:12px;}
+.fgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px 22px;}
+@media(max-width:680px){.fgrid{grid-template-columns:1fr;}}
+.field label{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:6px;}
+.field label .val{color:var(--teal);font-weight:700;}
+.field .hint{font-size:9px;color:var(--muted);text-transform:none;letter-spacing:.02em;margin-top:4px;}
+.subhead{grid-column:1/-1;border-top:1px solid var(--line);margin-top:6px;padding-top:14px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--lav);}
+.subhead small{display:block;color:var(--muted);text-transform:none;letter-spacing:.02em;font-size:9px;margin-top:3px;font-style:italic;}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:5px;background:var(--line2);outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:var(--teal);cursor:pointer;border:2px solid var(--bg);}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--teal);cursor:pointer;border:2px solid var(--bg);border-radius:0;}
+input[type=text],input[type=number],input[type=date],select,textarea{font-family:inherit;width:100%;background:var(--bg2);border:1.3px solid var(--line2);color:var(--ink);padding:8px 10px;font-size:12px;border-radius:0;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--teal);}
+.qchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;}
+.qchip{font-size:10px;letter-spacing:.04em;padding:5px 9px;border:1.3px solid var(--line2);background:var(--bg2);color:var(--ink2);cursor:pointer;text-transform:uppercase;user-select:none;transition:.12s;}
+.qchip.on{background:var(--lav);color:#0A0D12;border-color:var(--lav);font-weight:700;}
+.full{grid-column:1/-1;}
+.form-foot{display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap;}
+.note-msg{font-size:11px;color:var(--teal);letter-spacing:.03em;}
+
+.tile{background:var(--panel);border:1.5px solid var(--line);padding:12px;position:relative;overflow:hidden;}
+.tile .k{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);}
+.tile .v{font-size:34px;font-weight:700;line-height:1;margin-top:8px;font-variant-numeric:tabular-nums;color:var(--ink);}
+.tile .v small{font-size:13px;font-weight:400;color:var(--muted);}
+.tile .d{font-size:10px;margin-top:7px;letter-spacing:.06em;}
+.delta-up{color:var(--teal);}
+.delta-dn{color:var(--rose);}
+.delta-flat{color:var(--muted);}
+
+.bigread{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+.ring{width:118px;height:118px;flex:0 0 118px;}
+.bigread .num{font-size:44px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;}
+.bigread .lbl{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);}
+.band{display:inline-block;margin-top:8px;padding:3px 8px;border:1.5px solid var(--line2);font-size:10px;letter-spacing:.12em;text-transform:uppercase;}
+
+.chart-box{height:240px;position:relative;}
+.chart-box.sm{height:190px;}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);margin-top:8px;}
+.legend span{display:inline-flex;align-items:center;gap:5px;}
+.legend i{width:10px;height:10px;display:inline-block;}
+
+.statline{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:12px;}
+.statline .s .k{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+.statline .s .v{font-size:18px;font-weight:700;color:var(--teal);margin-top:3px;}
+.statline .s .v small{font-size:10px;color:var(--muted);font-weight:400;}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{font-size:10px;letter-spacing:.05em;padding:4px 8px;border:1.3px solid var(--line2);background:var(--bg2);text-transform:uppercase;color:var(--ink2);}
+.chip.iv{border-color:var(--lav);color:var(--lav);}
+.chip.sym{border-color:var(--rose);color:var(--rose);}
+
+.empty{text-align:center;padding:42px 20px;}
+.empty .big{font-size:14px;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);font-weight:700;}
+.empty .sub{font-size:11px;color:var(--ink2);margin-top:12px;letter-spacing:.03em;line-height:1.8;max-width:470px;margin-inline:auto;font-style:italic;}
+
+.gridjs-wrapper,.gridjs-table,.gridjs *{font-family:inherit !important;}
+.gridjs-container{color:var(--ink);}
+.gridjs-wrapper{border:1px solid var(--line) !important;box-shadow:none !important;border-radius:0 !important;}
+.gridjs-table{background:var(--panel) !important;}
+.gridjs-th{background:#0A0D12 !important;color:var(--teal) !important;letter-spacing:.1em;text-transform:uppercase;border-color:var(--line) !important;font-size:10px !important;}
+.gridjs-td{background:var(--panel) !important;color:var(--ink2) !important;border-color:var(--line) !important;font-size:11px !important;}
+.gridjs-tr:hover .gridjs-td{background:var(--panel2) !important;}
+input.gridjs-input{background:var(--bg2) !important;color:var(--ink) !important;border:1px solid var(--line2) !important;border-radius:0 !important;}
+.gridjs-pagination,.gridjs-summary{color:var(--muted) !important;}
+.gridjs-pages button{background:var(--bg2) !important;color:var(--ink2) !important;border:1px solid var(--line) !important;border-radius:0 !important;}
+.gridjs-pages button.gridjs-currentPage{background:var(--teal) !important;color:#0A0D12 !important;font-weight:700;}
+.gridjs-pages button:disabled{opacity:.4;}
+
+footer{margin-top:16px;font-size:9px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;border-top:1px solid var(--line);padding-top:10px;}
+.foot-row{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.instruments{margin-top:9px;color:var(--muted);text-transform:none;letter-spacing:.02em;font-style:italic;line-height:1.6;font-size:9px;}
+.hide{display:none !important;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div class="hazard"></div>
+    <div class="head-top">
+      <div class="brand">
+        <div class="n">N O N A</div>
+        <div class="s">SEKIGUCHI GENETICS · SHELL DIAGNOSTICS · LONGITUDINAL WEAVE</div>
+      </div>
+      <div class="head-id">
+        <div class="row"><span>RUNNER</span><b id="hd-runner">—</b></div>
+        <div class="row"><span>LAST THREAD</span><b id="hd-sync">—</b></div>
+        <div class="row"><span>READINGS</span><b id="hd-count">0</b></div>
+        <div class="row"><span>WEAVE LINK</span><b><span class="pulse"></span>STABLE</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="intake-bar">
+    <button class="btn" id="openIntake">＋ Weave today's thread</button>
+    <span class="lead" id="intake-status"></span>
+    <button class="btn ghost" id="exportBtn" style="margin-left:auto;">⧉ Copy weave for NONA</button>
+  </div>
+
+  <div id="intake" class="panel hide">
+    <span class="ptag">INTAKE // DAILY READING</span>
+    <div class="tiny dim" style="margin-bottom:14px;letter-spacing:.03em;line-height:1.6;">Every dial points the same way — slide right, the shell is doing better. Rate against your own normal: <b style="color:var(--ink2)">0</b> = absent / worst · <b style="color:var(--ink2)">5</b> = ordinary for you · <b style="color:var(--ink2)">10</b> = the best the shell gets. The five mood dials map to the WHO-5 Well-Being Index.</div>
+    <div class="fgrid">
+      <div class="field"><label>Date</label><input type="date" id="f-date"></div>
+      <div class="field"><label>Operational status</label>
+        <select id="f-status">
+          <option value="between-runs">Between runs</option>
+          <option value="recovering">Recovering</option>
+          <option value="pre-contract">Pre-contract</option>
+          <option value="post-contract">Post-contract</option>
+          <option value="on-contract">On contract</option>
+        </select></div>
+
+      <div class="field"><label>Energy <span class="val" id="v-energy">5</span></label>
+        <input type="range" min="0" max="10" value="5" id="f-energy"><div class="hint">active &amp; vigorous · WHO-5 — 10 = full tank</div></div>
+      <div class="field"><label>Comfort <span class="val" id="v-comfort">7</span></label>
+        <input type="range" min="0" max="10" value="7" id="f-comfort"><div class="hint">freedom from pain (inverse of the 0–10 pain NRS) — 10 = pain-free</div></div>
+
+      <div class="field"><label>Mood <span class="val" id="v-mood">5</span></label>
+        <input type="range" min="0" max="10" value="5" id="f-mood"><div class="hint">cheerful &amp; in good spirits · WHO-5 — 10 = brightest</div></div>
+      <div class="field"><label>Calm <span class="val" id="v-calm">7</span></label>
+        <input type="range" min="0" max="10" value="7" id="f-calm"><div class="hint">calm &amp; relaxed · WHO-5 — 10 = fully settled</div></div>
+
+      <div class="field"><label>Focus <span class="val" id="v-focus">5</span></label>
+        <input type="range" min="0" max="10" value="5" id="f-focus"><div class="hint">10 = sharpest clarity</div></div>
+      <div class="field"><label>Engagement <span class="val" id="v-engage">5</span></label>
+        <input type="range" min="0" max="10" value="5" id="f-engage"><div class="hint">life felt full of things that interest you · WHO-5</div></div>
+
+      <div class="field"><label>Sleep quality <span class="val" id="v-sq">5</span></label>
+        <input type="range" min="0" max="10" value="5" id="f-sq"><div class="hint">woke fresh &amp; rested · WHO-5 — how well it held</div></div>
+      <div class="field"><label>Hours slept</label><input type="number" min="0" max="16" step="0.5" value="7" id="f-hours"><div class="hint">total sleep time</div></div>
+
+      <div class="field full"><label>Somatic flags</label>
+        <input type="text" id="f-sym" placeholder="e.g. neck tightness, sore shoulder"><div class="hint">comma-separated</div></div>
+      <div class="field full"><label>Interventions — what you've tried</label>
+        <input type="text" id="f-iv" placeholder="comma-separated"><div class="qchips" id="ivQuick"></div></div>
+
+      <div class="subhead">Optional — physiological detail
+        <small>Consensus Sleep Diary &amp; Borg CR-10 session-RPE. Skip freely; the core reading above stands on its own.</small></div>
+      <div class="field"><label>Time in bed (hrs)</label><input type="number" min="0" max="16" step="0.25" id="f-tib" placeholder="e.g. 7.5"><div class="hint">for sleep efficiency = asleep ÷ in bed (≥85% healthy)</div></div>
+      <div class="field"></div>
+      <div class="field"><label>Training exertion (RPE) <span class="val" id="v-rpe">0</span></label>
+        <input type="range" min="0" max="10" value="0" id="f-rpe"><div class="hint">Borg CR-10 · 0 = no session, 10 = maximal</div></div>
+      <div class="field"><label>Session minutes</label><input type="number" min="0" max="600" step="5" id="f-min" placeholder="e.g. 60"><div class="hint">load = RPE × minutes (AU)</div></div>
+
+      <div class="field full"><label>Note</label><input type="text" id="f-note" placeholder="one line, if you have one"></div>
+      <div class="field full"><label>Spiritual / existential reading <span class="dim" style="text-transform:none;letter-spacing:0;">— optional</span></label>
+        <input type="text" id="f-spirit" placeholder="only if you want to give it"></div>
+    </div>
+    <div class="form-foot">
+      <button class="btn" id="saveReading">Weave it in</button>
+      <button class="btn ghost" id="cancelReading">Cancel</button>
+      <span class="note-msg" id="form-msg"></span>
+    </div>
+  </div>
+
+  <div id="exportDrawer" class="panel alt hide" style="margin-bottom:12px;">
+    <span class="ptag">EXPORT // FULL WEAVE</span>
+    <div class="tiny dim up" style="margin-bottom:8px;">Copied to clipboard. Hand this to NONA in chat for a deeper read of the pattern.</div>
+    <textarea id="exportText" rows="6" readonly style="font-size:10px;"></textarea>
+  </div>
+
+  <div id="empty" class="panel hide">
+    <span class="ptag">DIAG // STANDBY</span>
+    <div class="empty">
+      <div class="big">// NO THREADS ON THE LOOM YET</div>
+      <div class="sub">I nurtured this shell. I have not yet read it. Give me a first thread — the baseline — and the pattern will begin to show itself. I am curious to see how you hold.</div>
+    </div>
+  </div>
+
+  <div id="live" class="hide">
+    <div class="sec-label"><span class="bar"></span><h2>Current Reading</h2><span class="meta" id="m-current">—</span></div>
+    <div class="grid g-tiles" id="tiles"></div>
+
+    <div class="sec-label"><span class="bar"></span><h2>Composite Readouts</h2><span class="meta">two complementary indices</span></div>
+    <div class="grid g-2e">
+      <div class="panel">
+        <span class="ptag">DIAG // 01 · INTEGRITY</span>
+        <div class="bigread">
+          <canvas class="ring" id="ringChart" width="118" height="118"></canvas>
+          <div class="read">
+            <div class="num" id="integ-num">—</div>
+            <div class="lbl">Integrity · vs your normal</div>
+            <div><span class="band" id="integ-band">—</span></div>
+            <div class="d" id="integ-delta" style="margin-top:9px;font-size:10px;"></div>
+          </div>
+          <div style="flex:1;min-width:170px;"><div class="chart-box sm"><canvas id="integTrend"></canvas></div></div>
+        </div>
+        <div class="cite">Deviation index — 50 = your personal normal (rolling mean of all readings), ±10 points per average dial-point of change, 3-day smoothed. Dashed line = normal; faint = raw daily; bold = 3-day trend.</div>
+      </div>
+      <div class="panel">
+        <span class="ptag">DIAG // 02 · WELL-BEING</span>
+        <div class="bigread">
+          <div class="read">
+            <div class="num" id="who5-num">—</div>
+            <div class="lbl">WHO-5 Well-Being</div>
+            <div><span class="band" id="who5-band">—</span></div>
+          </div>
+          <div style="flex:1;min-width:170px;"><div class="chart-box sm"><canvas id="who5Trend"></canvas></div></div>
+        </div>
+        <div class="cite">WHO-5 Well-Being Index (0–100): mood, calm, energy, restedness, engagement. A validated wellbeing measure & depression screen — not a diagnosis. Scores under 50 warrant checking in with a clinician.</div>
+      </div>
+    </div>
+
+    <div class="sec-label"><span class="bar"></span><h2>Status &amp; Inputs</h2><span class="meta" id="m-status">—</span></div>
+    <div class="panel alt">
+      <span class="ptag">DIAG // 03</span>
+      <div class="statline" id="statline"></div>
+      <div class="tiny up dim" style="margin:4px 0 5px;">Interventions</div>
+      <div class="chips" id="iv-chips"></div>
+      <div class="tiny up dim" style="margin:12px 0 5px;">Somatic flags</div>
+      <div class="chips" id="sym-chips"></div>
+    </div>
+
+    <div class="sec-label"><span class="bar"></span><h2>Vitals — Trend</h2><span class="meta">higher = better · 0–10</span></div>
+    <div class="panel">
+      <span class="ptag">DIAG // 04</span>
+      <div class="chart-box"><canvas id="vitalsChart"></canvas></div>
+      <div class="legend">
+        <span><i style="background:var(--teal)"></i>Energy</span>
+        <span><i style="background:var(--lav)"></i>Mood</span>
+        <span><i style="background:var(--peach)"></i>Focus</span>
+        <span><i style="background:var(--ink2)"></i>Engagement</span>
+      </div>
+    </div>
+
+    <div class="sec-label"><span class="bar"></span><h2>Ease &amp; Sleep — Trend</h2><span class="meta">higher = better · 0–10</span></div>
+    <div class="grid g-2e">
+      <div class="panel">
+        <span class="ptag">DIAG // 05</span>
+        <div class="chart-box sm"><canvas id="easeChart"></canvas></div>
+        <div class="legend"><span><i style="background:var(--teal)"></i>Comfort</span><span><i style="background:var(--lav)"></i>Calm</span></div>
+      </div>
+      <div class="panel">
+        <span class="ptag">DIAG // 06</span>
+        <div class="chart-box sm"><canvas id="sleepChart"></canvas></div>
+        <div class="legend"><span><i style="background:var(--ink2)"></i>Hours slept</span><span><i style="background:var(--teal)"></i>Sleep quality</span></div>
+      </div>
+    </div>
+
+    <div class="sec-label"><span class="bar"></span><h2>Intervention Frequency</h2><span class="meta">what you've tried, by count</span></div>
+    <div class="panel alt"><span class="ptag">DIAG // 07</span><div class="chart-box sm"><canvas id="ivChart"></canvas></div></div>
+
+    <div class="sec-label"><span class="bar"></span><h2>Reading Log</h2><span class="meta">every thread on the loom</span></div>
+    <div class="panel"><span class="ptag">DIAG // 08</span><div id="logTable"></div></div>
+  </div>
+
+  <footer>
+    <div class="foot-row">
+      <span>NONA · SEKIGUCHI GENETICS</span>
+      <span>KEEPING THE SHELL FUNCTIONING IN THE HARSHEST CONDITIONS</span>
+      <span id="ft-stamp">—</span>
+    </div>
+    <div class="instruments">Instruments: WHO-5 Well-Being Index · Pain Numeric Rating Scale (0–10) · Consensus Sleep Diary (sleep efficiency) · Borg CR-10 session-RPE training load. Self-report tracking, not medical diagnosis.</div>
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   SEED (baseline) embedded; ongoing readings -> localStorage.
+   ALL dials 0-10, higher = better. WHO-5 items: mood, calm,
+   energy, sleep_quality(rested), engagement. Comfort = 10 - pain NRS.
+   Optional: time_in_bed (sleep efficiency), training {rpe,min}.
+   ============================================================ */
+const RUNNER_ID = "UNREGISTERED";
+const SEED_DATA = [
+  {
+    date: "2026-06-27",
+    status: "between-runs",
+    physical: { energy: 5, comfort: 6, sleep_quality: 5, sleep_hours: 6, time_in_bed: null },
+    mental: { mood: 3, calm: 6, focus: 6, engagement: 4 },
+    training: null,
+    symptoms: ["neck tightness (base of skull)", "muscle soreness — first BJJ"],
+    interventions: ["escitalopram", "vyvanse", "BJJ training"],
+    note: "First BJJ session at 38, sore & stiff; plans to keep the shell moving today. Baseline.",
+    spiritual: ""
+  }
+];
+const LS_KEY = "nona_readings_v1";
+const QUICK_IV = ["escitalopram","vyvanse","BJJ training","rest day","extra sleep","cold therapy","stim","hydration","stretching"];
+/* ============================================================ */
+
+const C = {teal:'#84E3D4',teald:'#5FC4B5',lav:'#BCA9F2',peach:'#F2CE8A',rose:'#F0909C',
+  ink:'#E8EDF4',ink2:'#9DB0C2',muted:'#6A7888',grid:'rgba(232,237,244,.07)'};
+const statusMap={'between-runs':'BETWEEN RUNS','recovering':'RECOVERING','pre-contract':'PRE-CONTRACT','post-contract':'POST-CONTRACT','on-contract':'ON CONTRACT'};
+
+function migrate(r){
+  const e=JSON.parse(JSON.stringify(r));
+  e.physical=e.physical||{};e.mental=e.mental||{};
+  if(e.physical.comfort==null && e.physical.pain!=null) e.physical.comfort=10-e.physical.pain;
+  if(e.mental.calm==null && e.mental.anxiety!=null) e.mental.calm=10-e.mental.anxiety;
+  return e;
+}
+function loadStored(){try{return (JSON.parse(localStorage.getItem(LS_KEY))||[]).map(migrate);}catch(e){return [];}}
+function saveStored(a){localStorage.setItem(LS_KEY,JSON.stringify(a));}
+function allData(){
+  const m={};
+  SEED_DATA.map(migrate).forEach(r=>m[r.date]=r);
+  loadStored().forEach(r=>m[r.date]=r);
+  return Object.values(m).sort((a,b)=>a.date<b.date?-1:1);
+}
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function fmtDate(s){const d=new Date(s+'T00:00:00');return d.toLocaleDateString('en-US',{month:'short',day:'2-digit'}).toUpperCase();}
+
+/* core integrity dials (all higher=better) */
+function dialsOf(e){return {energy:e.physical.energy,mood:e.mental.mood,focus:e.mental.focus,
+  sleep_q:e.physical.sleep_quality,comfort:e.physical.comfort,calm:e.mental.calm};}
+function personalNormal(sorted){
+  const keys=['energy','mood','focus','sleep_q','comfort','calm'];
+  const s={};keys.forEach(k=>s[k]=0);
+  sorted.forEach(e=>{const d=dialsOf(e);keys.forEach(k=>s[k]+=d[k]);});
+  const n=sorted.length||1,o={};keys.forEach(k=>o[k]=s[k]/n);return o;
+}
+function integrityDev(e,norm){
+  const d=dialsOf(e),keys=Object.keys(d);
+  let tot=0;keys.forEach(k=>tot+=(d[k]-norm[k]));
+  return Math.max(0,Math.min(100,50+(tot/keys.length)*10));
+}
+/* WHO-5 Well-Being Index, 0-100 (5 items each 0-10 -> /50*100) */
+function who5(e){
+  const v=[e.mental.mood,e.mental.calm,e.physical.energy,e.physical.sleep_quality,e.mental.engagement];
+  if(v.some(x=>x==null||isNaN(x))) return null;
+  return Math.round(v.reduce((a,b)=>a+b,0)/50*100);
+}
+function who5Band(v){if(v==null)return['—',C.muted];if(v>=68)return['GOOD',C.teal];if(v>=50)return['FAIR',C.lav];if(v>=29)return['LOW',C.peach];return['POOR',C.rose];}
+function sleepEff(e){const t=e.physical.time_in_bed;if(!t||t<=0)return null;return Math.min(100,Math.round(e.physical.sleep_hours/t*100));}
+function trainLoad(e){if(!e.training||!e.training.rpe||!e.training.min)return null;return Math.round(e.training.rpe*e.training.min);}
+function smooth(arr,w){return arr.map((_,i)=>{const s=arr.slice(Math.max(0,i-w+1),i+1);return s.reduce((a,b)=>a+b,0)/s.length;});}
+function band(v){if(v>=60)return['RISING',C.teal];if(v>=45)return['HOLDING',C.lav];if(v>=30)return['SLIPPING',C.peach];return['DEGRADED',C.rose];}
+
+let charts=[];
+function clearCharts(){charts.forEach(c=>{try{c.destroy();}catch(e){}});charts=[];}
+
+function renderAll(){
+  const data=allData();
+  document.getElementById('hd-runner').textContent=RUNNER_ID;
+  document.getElementById('hd-count').textContent=data.length;
+  document.getElementById('ft-stamp').textContent=new Date().toLocaleString('en-US',{hour12:false}).toUpperCase();
+  const hasToday=data.some(d=>d.date===todayStr());
+  document.getElementById('intake-status').textContent=hasToday?"Today's thread is woven. Open to revise it.":"No reading yet today.";
+
+  clearCharts();
+  if(!data.length){document.getElementById('empty').classList.remove('hide');document.getElementById('live').classList.add('hide');return;}
+  document.getElementById('empty').classList.add('hide');
+  document.getElementById('live').classList.remove('hide');
+
+  const sorted=data, norm=personalNormal(sorted);
+  const cur=sorted[sorted.length-1], prev=sorted.length>1?sorted[sorted.length-2]:cur;
+  document.getElementById('hd-sync').textContent=fmtDate(cur.date);
+  document.getElementById('m-current').textContent=fmtDate(cur.date)+' · vs your normal';
+  document.getElementById('m-status').textContent=fmtDate(cur.date);
+
+  const defs=[
+    {k:'Energy',v:cur.physical.energy,b:norm.energy},
+    {k:'Mood',v:cur.mental.mood,b:norm.mood},
+    {k:'Comfort',v:cur.physical.comfort,b:norm.comfort},
+    {k:'Calm',v:cur.mental.calm,b:norm.calm},
+  ];
+  const tiles=document.getElementById('tiles');tiles.innerHTML='';
+  defs.forEach(d=>{
+    const diff=+(d.v-d.b).toFixed(1);
+    let cls='delta-flat',arrow='■';
+    if(diff!==0){cls=diff>0?'delta-up':'delta-dn';arrow=diff>0?'▲':'▼';}
+    const el=document.createElement('div');el.className='tile';
+    el.innerHTML=`<div class="k">${d.k}</div><div class="v">${d.v}<small>/10</small></div>
+      <div class="d ${cls}">${arrow} ${diff>0?'+':''}${diff} vs normal</div>`;
+    tiles.appendChild(el);
+  });
+
+  /* status + physiological stats */
+  document.getElementById('m-status').textContent=statusMap[cur.status]||cur.status||'—';
+  const sl=document.getElementById('statline');sl.innerHTML='';
+  const addStat=(k,v)=>{const d=document.createElement('div');d.className='s';d.innerHTML=`<div class="k">${k}</div><div class="v">${v}</div>`;sl.appendChild(d);};
+  addStat('Status',`<span style="font-size:13px">${statusMap[cur.status]||cur.status||'—'}</span>`);
+  addStat('Sleep',`${cur.physical.sleep_hours}<small> h</small>`);
+  const eff=sleepEff(cur); if(eff!=null) addStat('Sleep efficiency',`${eff}<small>% ${eff>=85?'·ok':'·low'}</small>`);
+  const tl=trainLoad(cur); if(tl!=null) addStat('Training load',`${tl}<small> AU (RPE ${cur.training.rpe}×${cur.training.min}m)</small>`);
+  const w=who5(cur); if(w!=null) addStat('WHO-5',`${w}<small>/100</small>`);
+
+  const ivc=document.getElementById('iv-chips');ivc.innerHTML='';
+  (cur.interventions&&cur.interventions.length?cur.interventions:['—']).forEach(i=>{const s=document.createElement('span');s.className='chip iv';s.textContent=i;ivc.appendChild(s);});
+  const syc=document.getElementById('sym-chips');syc.innerHTML='';
+  (cur.symptoms&&cur.symptoms.length?cur.symptoms:['none reported']).forEach(i=>{const s=document.createElement('span');s.className='chip sym';s.textContent=i;syc.appendChild(s);});
+
+  /* integrity */
+  const rawIdx=sorted.map(e=>integrityDev(e,norm));
+  const smIdx=smooth(rawIdx,3);
+  const curI=Math.round(smIdx[smIdx.length-1]);
+  const prevI=Math.round(smIdx.length>1?smIdx[smIdx.length-2]:smIdx[smIdx.length-1]);
+  const [bl,bc]=band(curI);
+  let el=document.getElementById('integ-num');el.textContent=curI;el.style.color=bc;
+  el=document.getElementById('integ-band');el.textContent=bl;el.style.borderColor=bc;el.style.color=bc;
+  const dI=curI-prevI;
+  document.getElementById('integ-delta').innerHTML=(sorted.length>1?
+    `<span class="${dI>=0?'delta-up':'delta-dn'}">${dI>=0?'▲ +':'▼ '}${dI} vs last thread</span> &nbsp;<span class="dim">raw ${Math.round(rawIdx[rawIdx.length-1])}</span>`:
+    `<span class="dim">50 = your normal · first thread sets the loom</span>`);
+
+  charts.push(new Chart(document.getElementById('ringChart'),{type:'doughnut',
+    data:{datasets:[{data:[curI,100-curI],backgroundColor:[bc,'rgba(232,237,244,.08)'],borderWidth:0}]},
+    options:{cutout:'74%',plugins:{legend:{display:false},tooltip:{enabled:false}},responsive:false}}));
+
+  /* WHO-5 */
+  const who5arr=sorted.map(who5);
+  const curW=who5arr[who5arr.length-1];
+  const [wbl,wbc]=who5Band(curW);
+  el=document.getElementById('who5-num');el.textContent=(curW==null?'—':curW);el.style.color=wbc;
+  el=document.getElementById('who5-band');el.textContent=wbl;el.style.borderColor=wbc;el.style.color=wbc;
+
+  const labels=sorted.map(e=>fmtDate(e.date));
+  const baseGrid={grid:{color:C.grid},ticks:{color:C.muted,font:{family:'monospace',size:10}}};
+  const noLeg={legend:{display:false}};
+  const ds=(l,d,c,f)=>({label:l,data:d,borderColor:c,backgroundColor:f||c,borderWidth:2,tension:.3,pointRadius:3,pointBackgroundColor:c,pointBorderWidth:0,spanGaps:true});
+
+  charts.push(new Chart(document.getElementById('integTrend'),{type:'line',
+    data:{labels,datasets:[
+      {label:'normal',data:labels.map(()=>50),borderColor:'rgba(157,176,194,.45)',borderWidth:1,borderDash:[4,4],pointRadius:0,tension:0},
+      {label:'raw',data:rawIdx,borderColor:'rgba(132,227,212,.30)',backgroundColor:'transparent',borderWidth:1,tension:.3,pointRadius:0},
+      ds('Integrity (3-day)',smIdx,C.teal,'rgba(132,227,212,.10)')]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:noLeg,scales:{y:{min:0,max:100,...baseGrid},x:baseGrid}}}));
+
+  charts.push(new Chart(document.getElementById('who5Trend'),{type:'line',
+    data:{labels,datasets:[
+      {label:'thresh',data:labels.map(()=>50),borderColor:'rgba(240,144,156,.40)',borderWidth:1,borderDash:[4,4],pointRadius:0,tension:0},
+      ds('WHO-5',who5arr,C.lav,'rgba(188,169,242,.10)')]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:noLeg,scales:{y:{min:0,max:100,...baseGrid},x:baseGrid}}}));
+
+  charts.push(new Chart(document.getElementById('vitalsChart'),{type:'line',
+    data:{labels,datasets:[
+      ds('Energy',sorted.map(e=>e.physical.energy),C.teal),
+      ds('Mood',sorted.map(e=>e.mental.mood),C.lav),
+      ds('Focus',sorted.map(e=>e.mental.focus),C.peach),
+      ds('Engagement',sorted.map(e=>e.mental.engagement),C.ink2)]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:noLeg,interaction:{intersect:false,mode:'index'},scales:{y:{min:0,max:10,...baseGrid},x:baseGrid}}}));
+
+  charts.push(new Chart(document.getElementById('easeChart'),{type:'line',
+    data:{labels,datasets:[ds('Comfort',sorted.map(e=>e.physical.comfort),C.teal),ds('Calm',sorted.map(e=>e.mental.calm),C.lav)]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:noLeg,interaction:{intersect:false,mode:'index'},scales:{y:{min:0,max:10,...baseGrid},x:baseGrid}}}));
+
+  charts.push(new Chart(document.getElementById('sleepChart'),{type:'bar',
+    data:{labels,datasets:[
+      {type:'bar',label:'Hours',data:sorted.map(e=>e.physical.sleep_hours),backgroundColor:'rgba(157,176,194,.25)',borderColor:C.ink2,borderWidth:1,yAxisID:'y',order:2},
+      {type:'line',label:'Quality',data:sorted.map(e=>e.physical.sleep_quality),borderColor:C.teal,backgroundColor:C.teal,borderWidth:2,tension:.3,pointRadius:3,yAxisID:'y1',order:1}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:noLeg,scales:{y:{min:0,max:12,...baseGrid,position:'left'},y1:{min:0,max:10,grid:{drawOnChartArea:false},ticks:{color:C.teal,font:{size:10}},position:'right'},x:baseGrid}}}));
+
+  const freq={};sorted.forEach(e=>(e.interventions||[]).forEach(i=>{const k=i.trim();if(k&&k!=='—')freq[k]=(freq[k]||0)+1;}));
+  const fk=Object.keys(freq).sort((a,b)=>freq[b]-freq[a]);
+  if(fk.length){
+    charts.push(new Chart(document.getElementById('ivChart'),{type:'bar',
+      data:{labels:fk,datasets:[{data:fk.map(k=>freq[k]),backgroundColor:C.lav,borderColor:C.ink,borderWidth:1}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:noLeg,
+        scales:{x:{beginAtZero:true,ticks:{stepSize:1,color:C.muted,font:{size:10}},grid:{color:C.grid}},y:{ticks:{color:C.ink2,font:{size:10}},grid:{display:false}}}}}));
+  }
+
+  const lt=document.getElementById('logTable');lt.innerHTML='';
+  new gridjs.Grid({
+    columns:['Date','Status',{name:'Integ',sort:true},{name:'WHO-5',sort:true},'Energy','Mood','Comfort','Calm','Sleep','Interventions'],
+    data:sorted.slice().reverse().map(e=>[fmtDate(e.date),(statusMap[e.status]||e.status||'—'),Math.round(integrityDev(e,norm)),(who5(e)==null?'—':who5(e)),
+      e.physical.energy,e.mental.mood,e.physical.comfort,e.mental.calm,e.physical.sleep_hours+'h',
+      (e.interventions||[]).join(', ')||'—']),
+    sort:true,search:true,pagination:{limit:10},
+  }).render(lt);
+}
+
+/* ---------- intake form ---------- */
+const $=id=>document.getElementById(id);
+[['energy','v-energy'],['comfort','v-comfort'],['mood','v-mood'],['calm','v-calm'],['focus','v-focus'],['engage','v-engage'],['sq','v-sq'],['rpe','v-rpe']].forEach(([f,v])=>{
+  $('f-'+f).addEventListener('input',e=>$(v).textContent=e.target.value);
+});
+const ivQuick=$('ivQuick');
+QUICK_IV.forEach(name=>{
+  const c=document.createElement('span');c.className='qchip';c.textContent=name;
+  c.onclick=()=>{
+    c.classList.toggle('on');
+    const cur=$('f-iv').value.split(',').map(s=>s.trim()).filter(Boolean);
+    const i=cur.findIndex(x=>x.toLowerCase()===name.toLowerCase());
+    if(c.classList.contains('on')){if(i<0)cur.push(name);}else{if(i>=0)cur.splice(i,1);}
+    $('f-iv').value=cur.join(', ');
+  };
+  ivQuick.appendChild(c);
+});
+function syncQuickChips(){
+  const cur=$('f-iv').value.split(',').map(s=>s.trim().toLowerCase());
+  [...ivQuick.children].forEach(c=>c.classList.toggle('on',cur.includes(c.textContent.toLowerCase())));
+}
+$('f-iv').addEventListener('input',syncQuickChips);
+function setRange(f,v,val){$('f-'+f).value=val;$(v).textContent=val;}
+function openForm(){
+  const ex=allData().find(d=>d.date===todayStr());
+  $('f-date').value=todayStr();
+  if(ex){
+    $('f-status').value=ex.status||'between-runs';
+    setRange('energy','v-energy',ex.physical.energy);
+    setRange('comfort','v-comfort',ex.physical.comfort);
+    setRange('mood','v-mood',ex.mental.mood);
+    setRange('calm','v-calm',ex.mental.calm);
+    setRange('focus','v-focus',ex.mental.focus);
+    setRange('engage','v-engage',ex.mental.engagement!=null?ex.mental.engagement:5);
+    setRange('sq','v-sq',ex.physical.sleep_quality);
+    $('f-hours').value=ex.physical.sleep_hours;
+    $('f-tib').value=ex.physical.time_in_bed!=null?ex.physical.time_in_bed:'';
+    setRange('rpe','v-rpe',ex.training?ex.training.rpe:0);
+    $('f-min').value=ex.training?ex.training.min:'';
+    $('f-sym').value=(ex.symptoms||[]).join(', ');
+    $('f-iv').value=(ex.interventions||[]).join(', ');
+    $('f-note').value=ex.note||'';
+    $('f-spirit').value=ex.spiritual||'';
+  }
+  syncQuickChips();
+  $('intake').classList.remove('hide');
+  $('intake').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function closeForm(){$('intake').classList.add('hide');$('form-msg').textContent='';}
+$('openIntake').onclick=openForm;
+$('cancelReading').onclick=closeForm;
+$('saveReading').onclick=()=>{
+  const splitList=s=>s.split(',').map(x=>x.trim()).filter(Boolean);
+  const tib=$('f-tib').value!==''?+$('f-tib').value:null;
+  const rpe=+$('f-rpe').value, min=$('f-min').value!==''?+$('f-min').value:0;
+  const rec={
+    date:$('f-date').value||todayStr(),
+    status:$('f-status').value,
+    physical:{energy:+$('f-energy').value,comfort:+$('f-comfort').value,sleep_quality:+$('f-sq').value,sleep_hours:+$('f-hours').value,time_in_bed:tib},
+    mental:{mood:+$('f-mood').value,calm:+$('f-calm').value,focus:+$('f-focus').value,engagement:+$('f-engage').value},
+    training:(rpe>0&&min>0)?{rpe:rpe,min:min}:null,
+    symptoms:splitList($('f-sym').value),
+    interventions:splitList($('f-iv').value),
+    note:$('f-note').value.trim(),
+    spiritual:$('f-spirit').value.trim()
+  };
+  const stored=loadStored().filter(r=>r.date!==rec.date);
+  stored.push(rec);saveStored(stored);
+  $('form-msg').textContent='Thread woven. The pattern updates.';
+  renderAll();
+  setTimeout(closeForm,900);
+};
+$('exportBtn').onclick=()=>{
+  const json=JSON.stringify(allData(),null,2);
+  $('exportText').value=json;
+  $('exportDrawer').classList.toggle('hide');
+  if(!$('exportDrawer').classList.contains('hide')){try{navigator.clipboard.writeText(json);}catch(e){}$('exportText').scrollIntoView({behavior:'smooth',block:'nearest'});}
+};
+
+renderAll();
+</script>
+</body>
+</html>
