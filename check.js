@@ -1,9 +1,8 @@
 
 /* ============================================================
-   SEED (baseline) embedded; ongoing readings -> localStorage.
-   ALL dials 0-10, higher = better. WHO-5 items: mood, calm,
-   energy, sleep_quality(rested), engagement. Comfort = 10 - pain NRS.
-   Optional: time_in_bed (sleep efficiency), training {rpe,min}.
+   SEED baseline embedded; ongoing readings -> localStorage.
+   All dials 0-10, higher=better. interventions[] = the tracked
+   FACTORS (structured toggles). note = free text (not correlated).
    ============================================================ */
 const RUNNER_ID = "UNREGISTERED";
 const SEED_DATA = [
@@ -20,12 +19,16 @@ const SEED_DATA = [
   }
 ];
 const LS_KEY = "nona_readings_v1";
-const QUICK_IV = ["escitalopram","vyvanse","BJJ training","rest day","extra sleep","cold therapy","stim","hydration","stretching"];
+const FACTOR_KEY = "nona_factors_v1";
+const BASE_FACTORS = ["escitalopram","vyvanse","BJJ training","caffeine","alcohol","magnesium","creatine","vitamin D","protein","hydration","sunlight","meditation","screens late","rest day"];
+const DERIVED = ["Slept 7h+","Trained"];
+const MIN_N = 3;
 /* ============================================================ */
 
 const C = {teal:'#84E3D4',teald:'#5FC4B5',lav:'#BCA9F2',peach:'#F2CE8A',rose:'#F0909C',
   ink:'#E8EDF4',ink2:'#9DB0C2',muted:'#6A7888',grid:'rgba(232,237,244,.07)'};
 const statusMap={'between-runs':'BETWEEN RUNS','recovering':'RECOVERING','pre-contract':'PRE-CONTRACT','post-contract':'POST-CONTRACT','on-contract':'ON CONTRACT'};
+let NORM=null, LAST_SORTED=[];
 
 function migrate(r){
   const e=JSON.parse(JSON.stringify(r));
@@ -42,10 +45,14 @@ function allData(){
   loadStored().forEach(r=>m[r.date]=r);
   return Object.values(m).sort((a,b)=>a.date<b.date?-1:1);
 }
-function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function fmtDate(s){const d=new Date(s+'T00:00:00');return d.toLocaleDateString('en-US',{month:'short',day:'2-digit'}).toUpperCase();}
+function getVocab(){try{const v=JSON.parse(localStorage.getItem(FACTOR_KEY));return (v&&v.length)?v:BASE_FACTORS.slice();}catch(e){return BASE_FACTORS.slice();}}
+function addVocab(names){const v=getVocab();let ch=false;names.forEach(n=>{n=n.trim();if(n&&!v.some(x=>x.toLowerCase()===n.toLowerCase())){v.push(n);ch=true;}});if(ch)localStorage.setItem(FACTOR_KEY,JSON.stringify(v));}
 
-/* core integrity dials (all higher=better) */
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function addDay(ds){const d=new Date(ds+'T00:00:00');d.setDate(d.getDate()+1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function fmtDate(s){const d=new Date(s+'T00:00:00');return d.toLocaleDateString('en-US',{month:'short',day:'2-digit'}).toUpperCase();}
+function avg(a){return a.reduce((x,y)=>x+y,0)/a.length;}
+
 function dialsOf(e){return {energy:e.physical.energy,mood:e.mental.mood,focus:e.mental.focus,
   sleep_q:e.physical.sleep_quality,comfort:e.physical.comfort,calm:e.mental.calm};}
 function personalNormal(sorted){
@@ -59,7 +66,6 @@ function integrityDev(e,norm){
   let tot=0;keys.forEach(k=>tot+=(d[k]-norm[k]));
   return Math.max(0,Math.min(100,50+(tot/keys.length)*10));
 }
-/* WHO-5 Well-Being Index, 0-100 (5 items each 0-10 -> /50*100) */
 function who5(e){
   const v=[e.mental.mood,e.mental.calm,e.physical.energy,e.physical.sleep_quality,e.mental.engagement];
   if(v.some(x=>x==null||isNaN(x))) return null;
@@ -70,6 +76,88 @@ function sleepEff(e){const t=e.physical.time_in_bed;if(!t||t<=0)return null;retu
 function trainLoad(e){if(!e.training||!e.training.rpe||!e.training.min)return null;return Math.round(e.training.rpe*e.training.min);}
 function smooth(arr,w){return arr.map((_,i)=>{const s=arr.slice(Math.max(0,i-w+1),i+1);return s.reduce((a,b)=>a+b,0)/s.length;});}
 function band(v){if(v>=60)return['RISING',C.teal];if(v>=45)return['HOLDING',C.lav];if(v>=30)return['SLIPPING',C.peach];return['DEGRADED',C.rose];}
+
+/* --- n-of-1 analysis --- */
+function outcomeVal(e,key){
+  switch(key){
+    case 'who5':return who5(e);
+    case 'integrity':return Math.round(integrityDev(e,NORM));
+    case 'mood':return e.mental.mood;
+    case 'energy':return e.physical.energy;
+    case 'comfort':return e.physical.comfort;
+    case 'calm':return e.mental.calm;
+    case 'focus':return e.mental.focus;
+    case 'sleep_q':return e.physical.sleep_quality;
+  }
+  return null;
+}
+function factorActive(e,name){
+  if(name==='Slept 7h+') return e.physical.sleep_hours>=7;
+  if(name==='Trained') return !!(e.training&&e.training.rpe>0) || (e.interventions||[]).some(x=>/bjj|train|grappl|lift|run|workout|roll/i.test(x));
+  return (e.interventions||[]).map(x=>x.toLowerCase()).includes(name.toLowerCase());
+}
+function factorNames(sorted){
+  const set=new Set();
+  sorted.forEach(e=>(e.interventions||[]).forEach(i=>{const k=i.trim();if(k)set.add(k);}));
+  const arr=[...set];
+  DERIVED.forEach(d=>{if(!arr.some(x=>x.toLowerCase()===d.toLowerCase()))arr.push(d);});
+  return arr;
+}
+function impact(sorted,name,outKey,lag){
+  const dateMap={};sorted.forEach(e=>dateMap[e.date]=e);
+  const withV=[],withoutV=[];
+  sorted.forEach(e=>{
+    let target=e;
+    if(lag===1){const t=dateMap[addDay(e.date)];if(!t)return;target=t;}
+    const o=outcomeVal(target,outKey);if(o==null||isNaN(o))return;
+    if(factorActive(e,name))withV.push(o);else withoutV.push(o);
+  });
+  return {nWith:withV.length,nWithout:withoutV.length,
+    delta:(withV.length&&withoutV.length)?(avg(withV)-avg(withoutV)):null};
+}
+function fmtDelta(d){
+  if(d==null)return '<span class="dim">—</span>';
+  const r=(d>0?'+':'')+d.toFixed(1);
+  const col=d>0?'var(--teal)':(d<0?'var(--rose)':'var(--muted)');
+  const arw=d>0?'▲':(d<0?'▼':'■');
+  return `<span style="color:${col}">${arw} ${r}</span>`;
+}
+function activeFactors(e){
+  const a=[...(e.interventions||[])];
+  DERIVED.forEach(d=>{if(factorActive(e,d)&&!a.some(x=>x.toLowerCase()===d.toLowerCase()))a.push(d);});
+  return a;
+}
+function renderAnalysis(sorted){
+  const outKey=$('outSel').value;
+  const impactBox=$('impactBox'), boardBox=$('boardBox');
+  if(sorted.length<5){
+    impactBox.innerHTML=`<div class="thin">The loom is still thin — associations need more threads before I will claim a pattern. Keep weaving; factor readouts begin around a week or two in. (${sorted.length} of ~5 minimum readings)</div>`;
+    boardBox.innerHTML='';
+    return;
+  }
+  const rows=factorNames(sorted).map(n=>({name:n,same:impact(sorted,n,outKey,0),next:impact(sorted,n,outKey,1)}))
+    .filter(r=>r.same.nWith>=MIN_N && r.same.nWithout>=MIN_N);
+  if(!rows.length){
+    impactBox.innerHTML=`<div class="thin">No factor yet has enough days both on and off (≥${MIN_N} each) to compare fairly. Keep logging your choices — and their absences — and the contrasts will resolve.</div>`;
+  }else{
+    rows.sort((a,b)=>{const da=a.same.delta==null?-999:a.same.delta;const db=b.same.delta==null?-999:b.same.delta;return db-da;});
+    let h=`<div class="irow h"><div>Factor · days on/off</div><div>Δ same-day</div><div>Δ next-day</div></div>`;
+    rows.forEach(r=>{
+      h+=`<div class="irow"><div class="iname">${r.name}<span class="in">${r.same.nWith}/${r.same.nWithout}</span></div>
+        <div class="idelta">${fmtDelta(r.same.delta)}</div>
+        <div class="idelta">${fmtDelta(r.next.delta)}</div></div>`;
+    });
+    impactBox.innerHTML=h;
+  }
+  /* best / worst */
+  const scored=sorted.map(e=>({e,o:outcomeVal(e,outKey)})).filter(x=>x.o!=null).sort((a,b)=>b.o-a.o);
+  const top=scored.slice(0,3), bot=scored.slice(-3).reverse();
+  const dayCard=x=>`<div class="bday"><div class="bhead"><b>${fmtDate(x.e.date)}</b><span class="bval">${Math.round(x.o)}</span></div>
+    <div class="chips">${activeFactors(x.e).map(f=>`<span class="chip iv">${f}</span>`).join('')||'<span class="tiny dim">no factors logged</span>'}</div>
+    <div class="tiny dim" style="margin-top:6px;">${x.e.physical.sleep_hours}h sleep${x.e.note?' · '+x.e.note:''}</div></div>`;
+  boardBox.innerHTML=`<div class="boardcol"><h3 style="color:var(--teal)">▲ Best days</h3>${top.map(dayCard).join('')}</div>
+    <div class="boardcol"><h3 style="color:var(--rose)">▼ Worst days</h3>${bot.map(dayCard).join('')}</div>`;
+}
 
 let charts=[];
 function clearCharts(){charts.forEach(c=>{try{c.destroy();}catch(e){}});charts=[];}
@@ -88,10 +176,10 @@ function renderAll(){
   document.getElementById('live').classList.remove('hide');
 
   const sorted=data, norm=personalNormal(sorted);
+  NORM=norm; LAST_SORTED=sorted;
   const cur=sorted[sorted.length-1], prev=sorted.length>1?sorted[sorted.length-2]:cur;
   document.getElementById('hd-sync').textContent=fmtDate(cur.date);
   document.getElementById('m-current').textContent=fmtDate(cur.date)+' · vs your normal';
-  document.getElementById('m-status').textContent=fmtDate(cur.date);
 
   const defs=[
     {k:'Energy',v:cur.physical.energy,b:norm.energy},
@@ -110,14 +198,12 @@ function renderAll(){
     tiles.appendChild(el);
   });
 
-  /* status + physiological stats */
-  document.getElementById('m-status').textContent=statusMap[cur.status]||cur.status||'—';
   const sl=document.getElementById('statline');sl.innerHTML='';
   const addStat=(k,v)=>{const d=document.createElement('div');d.className='s';d.innerHTML=`<div class="k">${k}</div><div class="v">${v}</div>`;sl.appendChild(d);};
-  addStat('Status',`<span style="font-size:13px">${statusMap[cur.status]||cur.status||'—'}</span>`);
+  document.getElementById('m-status').textContent=statusMap[cur.status]||cur.status||'—';
   addStat('Sleep',`${cur.physical.sleep_hours}<small> h</small>`);
   const eff=sleepEff(cur); if(eff!=null) addStat('Sleep efficiency',`${eff}<small>% ${eff>=85?'·ok':'·low'}</small>`);
-  const tl=trainLoad(cur); if(tl!=null) addStat('Training load',`${tl}<small> AU (RPE ${cur.training.rpe}×${cur.training.min}m)</small>`);
+  const tl=trainLoad(cur); if(tl!=null) addStat('Training load',`${tl}<small> AU</small>`);
   const w=who5(cur); if(w!=null) addStat('WHO-5',`${w}<small>/100</small>`);
 
   const ivc=document.getElementById('iv-chips');ivc.innerHTML='';
@@ -125,7 +211,6 @@ function renderAll(){
   const syc=document.getElementById('sym-chips');syc.innerHTML='';
   (cur.symptoms&&cur.symptoms.length?cur.symptoms:['none reported']).forEach(i=>{const s=document.createElement('span');s.className='chip sym';s.textContent=i;syc.appendChild(s);});
 
-  /* integrity */
   const rawIdx=sorted.map(e=>integrityDev(e,norm));
   const smIdx=smooth(rawIdx,3);
   const curI=Math.round(smIdx[smIdx.length-1]);
@@ -142,7 +227,6 @@ function renderAll(){
     data:{datasets:[{data:[curI,100-curI],backgroundColor:[bc,'rgba(232,237,244,.08)'],borderWidth:0}]},
     options:{cutout:'74%',plugins:{legend:{display:false},tooltip:{enabled:false}},responsive:false}}));
 
-  /* WHO-5 */
   const who5arr=sorted.map(who5);
   const curW=who5arr[who5arr.length-1];
   const [wbl,wbc]=who5Band(curW);
@@ -196,12 +280,14 @@ function renderAll(){
 
   const lt=document.getElementById('logTable');lt.innerHTML='';
   new gridjs.Grid({
-    columns:['Date','Status',{name:'Integ',sort:true},{name:'WHO-5',sort:true},'Energy','Mood','Comfort','Calm','Sleep','Interventions'],
+    columns:['Date','Status',{name:'Integ',sort:true},{name:'WHO-5',sort:true},'Energy','Mood','Comfort','Calm','Sleep','Factors'],
     data:sorted.slice().reverse().map(e=>[fmtDate(e.date),(statusMap[e.status]||e.status||'—'),Math.round(integrityDev(e,norm)),(who5(e)==null?'—':who5(e)),
       e.physical.energy,e.mental.mood,e.physical.comfort,e.mental.calm,e.physical.sleep_hours+'h',
       (e.interventions||[]).join(', ')||'—']),
     sort:true,search:true,pagination:{limit:10},
   }).render(lt);
+
+  renderAnalysis(sorted);
 }
 
 /* ---------- intake form ---------- */
@@ -209,21 +295,24 @@ const $=id=>document.getElementById(id);
 [['energy','v-energy'],['comfort','v-comfort'],['mood','v-mood'],['calm','v-calm'],['focus','v-focus'],['engage','v-engage'],['sq','v-sq'],['rpe','v-rpe']].forEach(([f,v])=>{
   $('f-'+f).addEventListener('input',e=>$(v).textContent=e.target.value);
 });
-const ivQuick=$('ivQuick');
-QUICK_IV.forEach(name=>{
-  const c=document.createElement('span');c.className='qchip';c.textContent=name;
-  c.onclick=()=>{
-    c.classList.toggle('on');
-    const cur=$('f-iv').value.split(',').map(s=>s.trim()).filter(Boolean);
-    const i=cur.findIndex(x=>x.toLowerCase()===name.toLowerCase());
-    if(c.classList.contains('on')){if(i<0)cur.push(name);}else{if(i>=0)cur.splice(i,1);}
-    $('f-iv').value=cur.join(', ');
-  };
-  ivQuick.appendChild(c);
-});
+function buildFactorChips(){
+  const box=$('ivQuick');box.innerHTML='';
+  getVocab().forEach(name=>{
+    const c=document.createElement('span');c.className='qchip';c.textContent=name;
+    c.onclick=()=>{
+      c.classList.toggle('on');
+      const cur=$('f-iv').value.split(',').map(s=>s.trim()).filter(Boolean);
+      const i=cur.findIndex(x=>x.toLowerCase()===name.toLowerCase());
+      if(c.classList.contains('on')){if(i<0)cur.push(name);}else{if(i>=0)cur.splice(i,1);}
+      $('f-iv').value=cur.join(', ');
+    };
+    box.appendChild(c);
+  });
+  syncQuickChips();
+}
 function syncQuickChips(){
   const cur=$('f-iv').value.split(',').map(s=>s.trim().toLowerCase());
-  [...ivQuick.children].forEach(c=>c.classList.toggle('on',cur.includes(c.textContent.toLowerCase())));
+  [...$('ivQuick').children].forEach(c=>c.classList.toggle('on',cur.includes(c.textContent.toLowerCase())));
 }
 $('f-iv').addEventListener('input',syncQuickChips);
 function setRange(f,v,val){$('f-'+f).value=val;$(v).textContent=val;}
@@ -247,8 +336,10 @@ function openForm(){
     $('f-iv').value=(ex.interventions||[]).join(', ');
     $('f-note').value=ex.note||'';
     $('f-spirit').value=ex.spiritual||'';
+  }else{
+    $('f-iv').value='';
   }
-  syncQuickChips();
+  buildFactorChips();
   $('intake').classList.remove('hide');
   $('intake').scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -259,6 +350,7 @@ $('saveReading').onclick=()=>{
   const splitList=s=>s.split(',').map(x=>x.trim()).filter(Boolean);
   const tib=$('f-tib').value!==''?+$('f-tib').value:null;
   const rpe=+$('f-rpe').value, min=$('f-min').value!==''?+$('f-min').value:0;
+  const factors=splitList($('f-iv').value);
   const rec={
     date:$('f-date').value||todayStr(),
     status:$('f-status').value,
@@ -266,10 +358,11 @@ $('saveReading').onclick=()=>{
     mental:{mood:+$('f-mood').value,calm:+$('f-calm').value,focus:+$('f-focus').value,engagement:+$('f-engage').value},
     training:(rpe>0&&min>0)?{rpe:rpe,min:min}:null,
     symptoms:splitList($('f-sym').value),
-    interventions:splitList($('f-iv').value),
+    interventions:factors,
     note:$('f-note').value.trim(),
     spiritual:$('f-spirit').value.trim()
   };
+  addVocab(factors);
   const stored=loadStored().filter(r=>r.date!==rec.date);
   stored.push(rec);saveStored(stored);
   $('form-msg').textContent='Thread woven. The pattern updates.';
@@ -279,8 +372,23 @@ $('saveReading').onclick=()=>{
 $('exportBtn').onclick=()=>{
   const json=JSON.stringify(allData(),null,2);
   $('exportText').value=json;
+  $('importDrawer').classList.add('hide');
   $('exportDrawer').classList.toggle('hide');
   if(!$('exportDrawer').classList.contains('hide')){try{navigator.clipboard.writeText(json);}catch(e){}$('exportText').scrollIntoView({behavior:'smooth',block:'nearest'});}
 };
+$('importBtn').onclick=()=>{$('exportDrawer').classList.add('hide');$('importDrawer').classList.toggle('hide');if(!$('importDrawer').classList.contains('hide'))$('importText').scrollIntoView({behavior:'smooth',block:'nearest'});};
+$('doImport').onclick=()=>{
+  try{
+    const arr=JSON.parse($('importText').value);
+    if(!Array.isArray(arr))throw 0;
+    const map={};loadStored().forEach(r=>map[r.date]=r);
+    let n=0;arr.map(migrate).forEach(r=>{if(r&&r.date){map[r.date]=r;n++;}});
+    saveStored(Object.values(map));
+    $('importMsg').textContent='Restored '+n+' threads.';
+    renderAll();
+  }catch(e){$('importMsg').textContent='Could not read that weave — check it is the exported JSON.';}
+};
+$('outSel').addEventListener('change',()=>renderAnalysis(LAST_SORTED));
 
+buildFactorChips();
 renderAll();
